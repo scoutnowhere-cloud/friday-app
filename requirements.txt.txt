@@ -1,0 +1,7 @@
+streamlit
+groq
+google-genai
+spotipy
+edge-tts
+pypdf
+requests
