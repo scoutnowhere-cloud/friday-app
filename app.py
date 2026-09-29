@@ -8,6 +8,31 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from google import genai
 from groq import Groq
+from st_audiorecorder import audiorecorder
+
+# Nella Sidebar o sopra la Chat
+st.sidebar.subheader("🎤 Comando Vocale")
+audio = audiorecorder("Premi per Parlare", "Registrazione in corso...")
+
+if len(audio) > 0:
+    # Salva il file audio temporaneo
+    wav_file = open("audio_input.wav", "wb")
+    wav_file.write(audio.tobytes())
+    wav_file.close()
+    
+    # Trascrizione tramite Groq Whisper (ultra-veloce e precisa)
+    with open("audio_input.wav", "rb") as file:
+        transcription = client_groq.audio.transcriptions.create(
+            file=(file.name, file.read()),
+            model="whisper-large-v3",
+            language="it"
+        )
+    
+    testo_trascritto = transcription.text
+    st.sidebar.success(f"Trascritto: {testo_trascritto}")
+    
+    # Invia il testo direttamente alla conversazione
+    st.session_state["paz_prompt"] = testo_trascritto
 
 # Silenzia i log interni di pypdf sugli oggetti corrotti
 import logging
