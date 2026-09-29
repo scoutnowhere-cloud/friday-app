@@ -10,32 +10,6 @@ from google import genai
 from groq import Groq
 from streamlit_mic_recorder import mic_recorder
 
-# Nella Sidebar o nell'interfaccia principale
-st.sidebar.subheader("🎤 Comando Vocale")
-audio_recorded = mic_recorder(
-    start_prompt="🎤 Avvia Ascolto",
-    stop_prompt="⏹️ Ferma e Invia",
-    key="recorder"
-)
-
-if audio_recorded and "bytes" in audio_recorded:
-    audio_bytes = audio_recorded["bytes"]
-    
-    # Salva temporaneamente l'audio
-    with open("temp_audio.wav", "wb") as f:
-        f.write(audio_bytes)
-    
-    # Trascrizione con Groq Whisper
-    with open("temp_audio.wav", "rb") as file:
-        transcription = client_groq.audio.transcriptions.create(
-            file=(file.name, file.read()),
-            model="whisper-large-v3",
-            language="it"
-        )
-    
-    testo_trascritto = transcription.text
-    st.sidebar.success(f"Trascritto: {testo_trascritto}")
-    st.session_state["paz_prompt"] = testo_trascritto
 # Silenzia i log interni di pypdf sugli oggetti corrotti
 import logging
 logging.getLogger("pypdf").setLevel(logging.ERROR)
@@ -56,7 +30,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CHIAVI E CREDENZIALI (Supporta st.secrets o fallback) ---
+# --- CHIAVI E CREDENZIALI ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6LA3QjRLLpAtOSMee8l3AbEPppXTC0o5pJ1FTJa6phgvg")
 
@@ -66,8 +40,16 @@ SPOTIPY_REDIRECT_URI = st.secrets.get("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:
 SCOPE = "user-modify-playback-state user-read-playback-state"
 
 
-# --- INIZIALIZZAZIONE CLIENT ---
-client_groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+# --- INIZIALIZZAZIONE CLIENT SICURA ---
+def get_groq_client():
+    if GROQ_API_KEY:
+        try:
+            return Groq(api_key=GROQ_API_KEY)
+        except Exception as e:
+            print(f"Errore inizializzazione Groq: {e}")
+    return None
+
+client_groq = get_groq_client()
 
 sp = None
 try:
@@ -364,6 +346,42 @@ st.caption("Interfaccia Intelligente per Francesca • Studio, Memoria & Assiste
 
 # --- SIDEBAR (PANNELLO CONTROLLI) ---
 with st.sidebar:
+    st.header("🎤 Comando Vocale")
+    audio_recorded = mic_recorder(
+        start_prompt="🎤 Avvia Ascolto",
+        stop_prompt="⏹️ Ferma e Invia",
+        key="recorder"
+    )
+
+    if audio_recorded and "bytes" in audio_recorded and audio_recorded["bytes"]:
+        c_groq = get_groq_client()
+        if not c_groq:
+            st.error("Chiave GROQ_API_KEY non trovata o non valida.")
+        else:
+            try:
+                audio_bytes_in = audio_recorded["bytes"]
+                with open("temp_audio.wav", "wb") as f:
+                    f.write(audio_bytes_in)
+                
+                with open("temp_audio.wav", "rb") as file:
+                    transcription = c_groq.audio.transcriptions.create(
+                        file=(file.name, file.read()),
+                        model="whisper-large-v3",
+                        language="it"
+                    )
+                
+                testo_trascritto = transcription.text
+                st.success(f"Trascritto: {testo_trascritto}")
+                st.session_state["paz_prompt"] = testo_trascritto
+                
+                if os.path.exists("temp_audio.wav"):
+                    os.remove("temp_audio.wav")
+                st.rerun()
+            except Exception as err_voice:
+                st.error(f"Errore trascrizione: {err_voice}")
+
+    st.divider()
+
     st.header("⚙️ Impostazioni Voce")
     scelta_vel = st.selectbox("Velocità Lettura F.R.I.D.A.Y.:", ["Normale", "Veloce (+20%)", "Lenta (-15%)"])
     if "Veloce" in scelta_vel:
@@ -441,7 +459,7 @@ for msg in st.session_state.messages:
 # --- DEFINIZIONE AZIONE DI INVIO/ELABORAZIONE ---
 prompt_user = st.chat_input("Fai una domanda di studio o parla con F.R.I.D.A.Y....")
 
-# Gestione trigger dai pulsanti rapidi
+# Gestione trigger dai pulsanti rapidi o comando vocale
 if "paz_prompt" in st.session_state:
     prompt_user = st.session_state.pop("paz_prompt")
 
@@ -464,7 +482,6 @@ if prompt_user or is_quiz:
     system_prompt = crea_system_prompt(st.session_state.memory_mgr)
     cronologia = [{"role": "system", "content": system_prompt}]
     
-    # Recupera ultime interazioni per il contesto
     for m in st.session_state.messages[-8:]:
         cronologia.append({"role": m["role"], "content": m["content"]})
 
@@ -479,6 +496,9 @@ if prompt_user or is_quiz:
                 if ricordo_estratto:
                     st.session_state.memory_mgr.aggiungi_ricordo(ricordo_estratto)
 
+    # Client Groq per la chat
+    c_groq = get_groq_client()
+
     # Elaborazione risposta speciale (Quiz, Appunti, Meteo)
     if is_quiz:
         risposta = st.session_state.notebook_mgr.genera_quiz_studio()
@@ -492,16 +512,26 @@ if prompt_user or is_quiz:
         else:
             cronologia.append({"role": "user", "content": prompt_user})
         
-        response = client_groq.chat.completions.create(model="openai/gpt-oss-120b", messages=cronologia)
-        risposta = response.choices[0].message.content
+        if c_groq:
+            response = c_groq.chat.completions.create(model="openai/gpt-oss-120b", messages=cronologia)
+            risposta = response.choices[0].message.content
+        else:
+            risposta = "Errore: GROQ_API_KEY non trovata."
+            
     elif any(p in testo_lower for p in ["meteo", "tempo", "vestirmi", "outfit", "temperatura", "ombrello", "pioggia"]):
         info_m = ottieni_meteo_e_outfit("Napoli")
         cronologia.append({"role": "user", "content": f"Meteo attuale: {info_m}. Consiglia un outfit a Francesca."})
-        response = client_groq.chat.completions.create(model="openai/gpt-oss-120b", messages=cronologia)
-        risposta = response.choices[0].message.content
+        if c_groq:
+            response = c_groq.chat.completions.create(model="openai/gpt-oss-120b", messages=cronologia)
+            risposta = response.choices[0].message.content
+        else:
+            risposta = "Errore: GROQ_API_KEY non trovata."
     else:
-        response = client_groq.chat.completions.create(model="openai/gpt-oss-120b", messages=cronologia)
-        risposta = response.choices[0].message.content
+        if c_groq:
+            response = c_groq.chat.completions.create(model="openai/gpt-oss-120b", messages=cronologia)
+            risposta = response.choices[0].message.content
+        else:
+            risposta = "Errore: GROQ_API_KEY non trovata."
 
     # 3. Genera Audio Voce ed Eroga in Output
     audio_bytes = genera_audio_voce(risposta, velocita=st.session_state.velocita_voce)
