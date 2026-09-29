@@ -346,7 +346,7 @@ st.caption("Interfaccia Intelligente per Francesca • Studio, Memoria & Assiste
 
 # --- SIDEBAR (PANNELLO CONTROLLI) ---
 with st.sidebar:
-   st.header("🎤 Comando Vocale")
+    st.header("🎤 Comando Vocale")
     audio_recorded = mic_recorder(
         start_prompt="🎤 Avvia Ascolto",
         stop_prompt="⏹️ Ferma e Invia",
@@ -376,32 +376,25 @@ with st.sidebar:
                 if os.path.exists("temp_audio.wav"):
                     os.remove("temp_audio.wav")
 
-                # INSERISCE DIRETTAMENTE IL MESSAGGIO NELLA CRONOLOGIA ED ELABORA LA RISPOSTA
                 if testo_trascritto:
-                    # Evita di reinviare lo stesso messaggio se la pagina si aggiorna
                     if "ultimo_trascritto" not in st.session_state or st.session_state["ultimo_trascritto"] != testo_trascritto:
                         st.session_state["ultimo_trascritto"] = testo_trascritto
                         
-                        # 1. Aggiungi messaggio utente
                         st.session_state.messages.append({"role": "user", "content": testo_trascritto})
 
-                        # 2. Costruisci prompt e storia
                         system_prompt = crea_system_prompt(st.session_state.memory_mgr)
                         cronologia = [{"role": "system", "content": system_prompt}]
                         for m in st.session_state.messages[-8:]:
                             cronologia.append({"role": m["role"], "content": m["content"]})
 
-                        # 3. Chiedi la risposta all'AI
                         response = c_groq.chat.completions.create(
                             model="openai/gpt-oss-120b", 
                             messages=cronologia
                         )
                         risposta_ai = response.choices[0].message.content
 
-                        # 4. Genera Audio
                         audio_ai = genera_audio_voce(risposta_ai, velocita=st.session_state.velocita_voce)
 
-                        # 5. Salva messaggio assistente ed esegui il refresh visivo
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": risposta_ai,
