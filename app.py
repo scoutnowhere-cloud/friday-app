@@ -8,7 +8,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from google import genai
 from groq import Groq
-from streamlit-mic-recorder import audiorecorder
+from streamlit_mic_recorder import mic_recorder
 
 # Nella Sidebar o sopra la Chat
 st.sidebar.subheader("🎤 Comando Vocale")
