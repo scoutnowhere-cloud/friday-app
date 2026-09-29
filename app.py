@@ -371,12 +371,17 @@ with st.sidebar:
                     )
                 
                 testo_trascritto = transcription.text
-                st.success(f"Trascritto: {testo_trascritto}")
-                st.session_state["paz_prompt"] = testo_trascritto
+                st.sidebar.success(f"Trascritto: {testo_trascritto}")
                 
+                # CANCELLA IL FILE TEMPORANEO
                 if os.path.exists("temp_audio.wav"):
                     os.remove("temp_audio.wav")
-                st.rerun()
+                
+                # INVIA DIRETTAMENTE IL MESSAGGIO NELLA CHAT
+                if testo_trascritto.strip():
+                    st.session_state["paz_prompt"] = testo_trascritto
+                    st.rerun()
+
             except Exception as err_voice:
                 st.error(f"Errore trascrizione: {err_voice}")
 
