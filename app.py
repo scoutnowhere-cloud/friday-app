@@ -10,18 +10,23 @@ from google import genai
 from groq import Groq
 from streamlit_mic_recorder import mic_recorder
 
-# Nella Sidebar o sopra la Chat
+# Nella Sidebar o nell'interfaccia principale
 st.sidebar.subheader("🎤 Comando Vocale")
-audio = audiorecorder("Premi per Parlare", "Registrazione in corso...")
+audio_recorded = mic_recorder(
+    start_prompt="🎤 Avvia Ascolto",
+    stop_prompt="⏹️ Ferma e Invia",
+    key="recorder"
+)
 
-if len(audio) > 0:
-    # Salva il file audio temporaneo
-    wav_file = open("audio_input.wav", "wb")
-    wav_file.write(audio.tobytes())
-    wav_file.close()
+if audio_recorded and "bytes" in audio_recorded:
+    audio_bytes = audio_recorded["bytes"]
     
-    # Trascrizione tramite Groq Whisper (ultra-veloce e precisa)
-    with open("audio_input.wav", "rb") as file:
+    # Salva temporaneamente l'audio
+    with open("temp_audio.wav", "wb") as f:
+        f.write(audio_bytes)
+    
+    # Trascrizione con Groq Whisper
+    with open("temp_audio.wav", "rb") as file:
         transcription = client_groq.audio.transcriptions.create(
             file=(file.name, file.read()),
             model="whisper-large-v3",
@@ -30,10 +35,7 @@ if len(audio) > 0:
     
     testo_trascritto = transcription.text
     st.sidebar.success(f"Trascritto: {testo_trascritto}")
-    
-    # Invia il testo direttamente alla conversazione
     st.session_state["paz_prompt"] = testo_trascritto
-
 # Silenzia i log interni di pypdf sugli oggetti corrotti
 import logging
 logging.getLogger("pypdf").setLevel(logging.ERROR)
