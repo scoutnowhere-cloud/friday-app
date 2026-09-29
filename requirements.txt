@@ -5,4 +5,4 @@ spotipy
 edge-tts
 pypdf
 requests
-st-audiorecorder
+streamlit-mic-recorder
