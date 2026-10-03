@@ -30,9 +30,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CHIAVI E CREDENZIALI ---
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6LA3QjRLLpAtOSMee8l3AbEPppXTC0o5pJ1FTJa6phgvg")
+# Setting chiavi api
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 
 SPOTIPY_CLIENT_ID = st.secrets.get("SPOTIPY_CLIENT_ID", "85c4ccfaa4044c8089f876900941f796")
 SPOTIPY_CLIENT_SECRET = st.secrets.get("SPOTIPY_CLIENT_SECRET", "aee96b979be34f1280c987c5a8628aa8")
